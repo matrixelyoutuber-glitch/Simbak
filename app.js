@@ -1,4 +1,4 @@
-here// Frontend only. Language Schools = 100% English. Government = 100% Arabic.
+// Frontend only. Language Schools = 100% English. Government = 100% Arabic.
 // Wrong-course ("undefined 'id'") detection is done HERE only — solvers untouched.
 // Same-origin only: API overrides and admin keys in URLs/storage are deliberately unsupported.
 const API_BASE = '';
@@ -65,8 +65,6 @@ const SHA256_K = new Uint32Array([
 ]);
 const SHA256_ENCODER = new TextEncoder();
 
-// Short-input SHA-256 for the browser proof. This avoids hundreds of thousands
-// of asynchronous SubtleCrypto calls while producing the exact same digest.
 function sha256Bytes(message) {
   const input = SHA256_ENCODER.encode(message);
   const block = new Uint8Array(64);
@@ -102,15 +100,11 @@ function sha256Bytes(message) {
   return output;
 }
 
-// A short, one-time SHA-256 proof makes large-scale scripted floods expensive.
-// It is not a replacement for Cloudflare Bot Management/WAF, but every public
-// solve and VIP login now costs browser work and cannot be replayed.
 async function getBrowserProof(scope) {
   let data = null;
   let lastError = null;
   for (let attempt = 0; attempt < 3 && !data; attempt += 1) {
     try {
-      // The unique query prevents a shared/CDN cache from replaying a used challenge.
       const burst = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const response = await fetchWithTimeout(`${API_BASE}/api/browser/challenge?scope=${encodeURIComponent(scope)}&_=${burst}`, {
         headers: BROWSER_HEADERS,
@@ -374,7 +368,6 @@ function applyLanguage(forceLang) {
   document.querySelectorAll('[data-i18n-placeholder]').forEach((element) => {
     element.placeholder = t(element.dataset.i18nPlaceholder);
   });
-  // re-render dynamic (non data-i18n) content in the new language too
   activitySignature = '';
   chaptersSignature = '';
   renderActivity(lastActivity);
@@ -483,6 +476,8 @@ function configureYearModal() {
 
 function showSelection() {
   applyLanguage();
+  joinModal.classList.add('hidden'); // 👈 تم إضافة هذا السطر لإخفاء نافذة تيليجرام إجباريًا ومنع التداخل
+  
   if (hasValidSelection()) {
     categoryModal.classList.add('hidden');
     yearModal.classList.add('hidden');
@@ -553,9 +548,9 @@ if (joinCompleted) {
 } else {
   applyLanguage();
 }
+
 function completeJoin() {
   joinCompleted = true;
-  // Storage can be unavailable in private/embedded browsers. Continue anyway.
   storageSession.setItem('qureoJoined', 'true');
   joinModal.classList.add('hidden');
   syncStartButton();
@@ -655,9 +650,6 @@ function renderChapters(chapters) {
   chaptersBox.appendChild(fragment);
 }
 
-/* Wrong-course popup: solvers abort with "Cannot read properties of undefined
-   (reading 'id')" (v22) or "course fetch failed" (v23) when the account is not
-   enrolled in the selected course. Tell the student WHICH side they really are. */
 function detectCourseMismatch(activity) {
   const start = Math.max(0, activity.length - 60);
   for (let i = activity.length - 1; i >= start; i--) {
@@ -1153,253 +1145,4 @@ function initVip0101() {
     }
     $('#vip-log-title').textContent = `${run.username} · ${run.display}`;
     const stickToBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 55;
-    log.textContent = (run.logs || []).join('\n') || 'العملية بدأت… لسه مفيش نشاط جديد.';
-    if (stickToBottom) log.scrollTop = log.scrollHeight;
-  }
-
-  function renderRuns() {
-    const box = $('#vip-runs');
-    box.replaceChildren();
-    $('#vip-stat-running').textContent = state.runs.filter((run) => run.running).length;
-    $('#vip-stat-finished').textContent = state.runs.filter((run) => !run.running && run.exit === 0).length;
-    $('#vip-stat-total').textContent = state.runs.length;
-    if (!state.runs.length) {
-      const empty = document.createElement('div');
-      empty.className = 'vip-empty';
-      empty.textContent = 'لسه مفيش عمليات. ابدأ أول حل من الأعلى.';
-      box.appendChild(empty);
-      updateLog();
-      return;
-    }
-    if (!state.runs.some((run) => run.id === state.selectedRun)) state.selectedRun = state.runs[0].id;
-    for (const run of state.runs) {
-      const status = statusOf(run);
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'vip-run' + (run.id === state.selectedRun ? ' vip-selected' : '');
-      card.setAttribute('aria-pressed', String(run.id === state.selectedRun));
-
-      const top = document.createElement('div');
-      top.className = 'vip-run-top';
-      const user = document.createElement('span');
-      user.className = 'vip-run-user';
-      user.textContent = run.username;
-      const badge = document.createElement('span');
-      badge.className = `vip-status ${status.className}`;
-      badge.textContent = status.label;
-      top.append(user, badge);
-
-      const course = document.createElement('div');
-      course.className = 'vip-run-course';
-      course.textContent = run.display;
-      const meta = document.createElement('div');
-      meta.className = 'vip-run-meta';
-      const owner = document.createElement('span');
-      owner.textContent = state.account?.admin ? `VIP: ${run.owner_name}` : `#${run.id.slice(0, 8)}`;
-      const time = document.createElement('time');
-      time.textContent = new Date(run.started * 1000).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-      meta.append(owner, time);
-      card.append(top, course, meta);
-
-      card.addEventListener('click', () => {
-        state.selectedRun = run.id;
-        renderRuns();
-      });
-      box.appendChild(card);
-    }
-    updateLog();
-  }
-
-  function renderAccounts(accounts) {
-    const box = $('#vip-accounts');
-    box.replaceChildren();
-    if (!accounts.length) {
-      const empty = document.createElement('div');
-      empty.className = 'vip-empty';
-      empty.textContent = 'لسه مفيش حسابات VIP. أنشئ أول حساب من الأعلى.';
-      box.appendChild(empty);
-      return;
-    }
-    for (const account of accounts) {
-      const row = document.createElement('div');
-      row.className = 'vip-account-row';
-      const avatar = document.createElement('div');
-      avatar.className = 'vip-account-avatar';
-      avatar.textContent = account.name.trim().charAt(0) || 'V';
-      const info = document.createElement('div');
-      info.className = 'vip-account-info';
-      const name = document.createElement('strong');
-      name.textContent = account.name;
-      const detail = document.createElement('small');
-      detail.textContent = `${account.running_count || 0} شغال الآن · الحد ${account.max_running}`;
-      info.append(name, detail);
-
-      const actions = document.createElement('div');
-      actions.className = 'vip-account-actions';
-      const limit = document.createElement('input');
-      limit.className = 'vip-input vip-limit-input';
-      limit.type = 'number';
-      limit.min = '1';
-      limit.max = '60';
-      limit.value = account.max_running;
-      limit.title = 'أقصى عدد حلول في نفس الوقت';
-      limit.setAttribute('aria-label', `أقصى تشغيل للحساب ${account.name}`);
-      const save = document.createElement('button');
-      save.className = 'vip-small-button';
-      save.type = 'button';
-      save.textContent = 'حفظ الحد';
-      save.addEventListener('click', async () => {
-        save.disabled = true;
-        try {
-          const { status, data } = await api('accounts/limit', authPayload({ account_id: account.id, max_running: Number(limit.value) }));
-          if (status === 401) return clearSession('انتهت الجلسة. ادخل تاني.');
-          if (!data.ok) throw new Error(data.error);
-          message(accountMessage, `تم ضبط «${account.name}» على ${data.account.max_running} حلول متزامنة.`);
-          await refresh();
-        } catch (error) {
-          message(accountMessage, friendlyError(error.message), true);
-        } finally {
-          save.disabled = false;
-        }
-      });
-      const remove = document.createElement('button');
-      remove.className = 'vip-small-button vip-danger';
-      remove.type = 'button';
-      remove.textContent = 'حذف';
-      remove.addEventListener('click', async () => {
-        if (!window.confirm(`حذف حساب «${account.name}»؟`)) return;
-        remove.disabled = true;
-        try {
-          const { status, data } = await api('accounts/delete', authPayload({ account_id: account.id }));
-          if (status === 401) return clearSession('انتهت الجلسة. ادخل تاني.');
-          if (!data.ok) throw new Error(data.error);
-          message(accountMessage, `تم حذف حساب «${account.name}».`);
-          await refresh();
-        } catch (error) {
-          message(accountMessage, friendlyError(error.message), true);
-        } finally {
-          remove.disabled = false;
-        }
-      });
-      actions.append(limit, save, remove);
-      row.append(avatar, info, actions);
-      box.appendChild(row);
-    }
-  }
-
-  async function refresh() {
-    if (!state.csrf || state.refreshing) return;
-    state.refreshing = true;
-    try {
-      const { status, data } = await api('status', authPayload());
-      if (status === 401) return clearSession('انتهت الجلسة أو كلمة السر اتغيرت. ادخل تاني.');
-      if (!data.ok) throw new Error(data.error || 'تعذر تحميل العمليات.');
-      showWorkspace(data.account);
-      state.runs = Array.isArray(data.runs) ? data.runs : [];
-      renderRuns();
-      if (data.account.admin) renderAccounts(Array.isArray(data.accounts) ? data.accounts : []);
-    } catch (error) {
-      message(solveMessage, friendlyError(error.message || 'مشكلة اتصال بالسيرفر.'), true);
-    } finally {
-      state.refreshing = false;
-    }
-  }
-
-  $('#vip-login-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const key = $('#vip-login-key').value;
-    if (!key) return;
-    loginButton.disabled = true;
-    message($('#vip-login-error'), 'جارٍ التحقق…');
-    try {
-      const proof = await getBrowserProof('vip');
-      const { data } = await api('login', { key, ...proof });
-      if (!data.ok) throw new Error(data.error || 'wrong password');
-      state.csrf = data.csrf;
-      showWorkspace(data.account);
-      message($('#vip-login-error'));
-      $('#vip-login-key').value = '';
-      await refresh();
-    } catch (error) {
-      message($('#vip-login-error'), friendlyError(error.message), true);
-    } finally {
-      loginButton.disabled = false;
-    }
-  });
-
-  $('#vip-toggle-key').addEventListener('click', () => {
-    const input = $('#vip-login-key');
-    const show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    $('#vip-toggle-key').textContent = show ? 'إخفاء' : 'عرض';
-  });
-  $('#vip-logout').addEventListener('click', async () => {
-    try { await api('logout', {}); } catch {}
-    clearSession();
-  });
-  $('#vip-refresh').addEventListener('click', refresh);
-
-  document.querySelectorAll('[data-vip-track]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.track = button.dataset.vipTrack;
-      document.querySelectorAll('[data-vip-track]').forEach((item) => item.classList.toggle('vip-active', item === button));
-      renderCourses();
-    });
-  });
-
-  $('#vip-solve-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (state.starting) return;
-    const username = $('#vip-student-id').value.trim();
-    const password = $('#vip-student-password').value;
-    const course = $('#vip-course').value;
-    if (!username || !password || !course) {
-      message(solveMessage, 'اكتب كود الطالب وكلمة السر واختار الكورس الأول.', true);
-      return;
-    }
-    state.starting = true;
-    startButton.disabled = true;
-    message(solveMessage, 'جارٍ تشغيل الحل مباشرة…');
-    try {
-      const { status, data } = await api('run', authPayload({ username, password, course }));
-      if (status === 401) return clearSession('انتهت الجلسة. ادخل تاني.');
-      if (!data.ok) throw new Error(data.error || 'تعذر بدء الحل.');
-      state.selectedRun = data.run_id;
-      message(solveMessage, `بدأ «${data.display}» — تابع النشاط المباشر.`);
-      await refresh();
-    } catch (error) {
-      message(solveMessage, friendlyError(error.message), true);
-    } finally {
-      state.starting = false;
-      startButton.disabled = false;
-    }
-  });
-
-  $('#vip-account-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const createButton = $('#vip-create-button');
-    const name = $('#vip-new-name').value.trim();
-    const password = $('#vip-new-password').value;
-    const maxRunning = Number($('#vip-new-limit').value);
-    createButton.disabled = true;
-    message(accountMessage, 'جارٍ إنشاء الحساب…');
-    try {
-      const { status, data } = await api('accounts', authPayload({ name, password, max_running: maxRunning }));
-      if (status === 401) return clearSession('انتهت الجلسة. ادخل تاني.');
-      if (!data.ok) throw new Error(data.error || 'تعذر إنشاء الحساب.');
-      message(accountMessage, `تم إنشاء «${name}». كلمة السر: ${password} · الحد: ${maxRunning}`);
-      $('#vip-new-name').value = '';
-      $('#vip-new-password').value = '';
-      $('#vip-new-limit').value = '2';
-      await refresh();
-    } catch (error) {
-      message(accountMessage, friendlyError(error.message), true);
-    } finally {
-      createButton.disabled = false;
-    }
-  });
-
-  renderCourses();
-  void restoreSession();
-  window.setInterval(refresh, 3000);
-    }
+    log.textContent = (run.logs || []).jo
