@@ -287,19 +287,19 @@
     </div>
   </div>
 
-  <!-- نافذة نوع المدرسة (تم إضافة أمر الإخفاء المباشر بالضغط لضمان العمل) -->
-  <div id="category-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="category-title">
+  <!-- نافذة نوع المدرسة (ظاهرة وجاهزة للاختيار) -->
+  <div id="category-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="category-title" style="display: flex !important;">
     <div class="modal-card category-panel">
       <div class="modal-kicker" data-i18n="categoryKicker">أهم خطوة — ظبطها صح</div>
       <h2 id="category-title" data-i18n="categoryTitle">حسابك على كيريو بالعربي ولا بالإنجليزي؟</h2>
       <p class="modal-intro" data-i18n="categoryIntro">دي أهم خطوة! لو حسابك بالعربي اختار «حكومي»، ولو بالإنجليزي اختار «لغات». الاختيار الغلط بيخلي الحل يقف من أوله.</p>
       <div class="category-grid two-col">
-        <button class="category-option" id="category-government" type="button" onclick="document.getElementById('category-modal').classList.add('hidden');">
+        <button class="category-option" id="category-government" type="button">
           <span class="category-code">AR</span>
           <span class="category-text"><strong data-i18n="govCard">حكومي · Government</strong><small data-i18n="govCardDesc">حساب كيريو بالعربي — أولى وتانية بكالوريا</small></span>
           <span class="category-arrow">→</span>
         </button>
-        <button class="category-option" id="category-language" type="button" onclick="document.getElementById('category-modal').classList.add('hidden');">
+        <button class="category-option" id="category-language" type="button">
           <span class="category-code">EN</span>
           <span class="category-text"><strong data-i18n="langCard">لغات · Language Schools</strong><small data-i18n="langCardDesc">حساب كيريو بالإنجليزي — JavaScript وPython وFinancial Literacy</small></span>
           <span class="category-arrow">→</span>
